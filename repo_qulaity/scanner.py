@@ -27,17 +27,13 @@ def scan_repo(repo_path: str):
 
             full_path = os.path.join(root, file)
 
-            try:
-                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                    line_count = sum(1 for _ in f)
-            except:
-                continue
+            
 
             files.append({
                 "path": full_path,
                 "name": file,
                 "ext": os.path.splitext(file)[1],
-                "lines": line_count
+                
             })
 
     return {

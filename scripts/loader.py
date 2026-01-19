@@ -20,10 +20,7 @@ def load_code(repo_dir=str) -> list:
     return docs
 
 
-# #### text splitters #####
-# from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# sepratator_list=[
     
 
 
