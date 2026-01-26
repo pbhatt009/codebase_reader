@@ -17,10 +17,10 @@ from scripts.retriverAndaug import get_response,chain_llm
 
 app = FastAPI()
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
-hf_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+# hf_model = HuggingFaceEmbeddings(
+#     model_name="sentence-transformers/all-MiniLM-L6-v2"
 
-)
+# )
 @app.get("/")
 async def read_root():
     return {"message": "Codebase Reader API iiis running."}
@@ -47,8 +47,9 @@ async def call(query: str, k: int):
     # # print("Vector store created.")
     # # print(vector_store.index_to_docstore_id)
     # # return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "id": vector_store.index_to_docstore_id}
-    response=get_response(vector_store, query, k)
-    return {"response": response}
+    # response=get_response(vector_store, query, k)
+    # return {"response": response}
+    pass
 
 
 
@@ -83,12 +84,13 @@ async def call(query: str, k: int):
 # result=get_response(vector_store, "What is the purpose of this repository?",k=4)
 # print(result)
 
+
 from repo_qulaity.scanner import scan_repo
 from repo_qulaity.metrics import readme_metrics, analyze_files,analyze_folder
-
+from repo_qulaity.score_cal import calculate_score
 if(__name__ == "__main__"):
     # uvicorn.run(app, host="127.0.0.1", port=8000)
-    data=scan_repo("scripts/clone_repo/Blog_Web_App")
+    # data=scan_repo("scripts/clone_repo/Blog_Web_App")
     # print(data)
     # readme_data=readme_metrics("scripts/clone_repo/Blog_Web_App")
     # print("readme data", readme_data)
@@ -96,5 +98,9 @@ if(__name__ == "__main__"):
     # f_data=analyze_files(data["files"])
     # print("file analysis data", f_data)
     
-    folder_data=analyze_folder(data["folders"])
-    print("folder analysis data", folder_data)
+    # folder_data=analyze_folder(data["folders"])
+    # print("folder analysis data", folder_data)
+    result=calculate_score("scripts/clone_repo/Blog_Web_App")
+    print(result)
+    
+    

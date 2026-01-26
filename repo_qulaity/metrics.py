@@ -60,11 +60,11 @@ def analyze_files(files):
                 root_file+=1
 
             data.append({
-                "file": file["name"],
+                "file_name": file["name"],
                 'path': file["path"],
                 
-                "loc": loc,
-                "comments": comment_lines,
+                "line_of_code": loc,
+                "comment_lines": comment_lines,
                 "comment_density": round(comment_density, 3),
             })
         return {"root_file_cnt": root_file, "data": data}
@@ -86,10 +86,10 @@ def analyze_folder(folder):
                 path = path.replace(clone_path, "")
                 max_depth = len(path.split(os.sep)) - 1
                 data.append({
-                    "file": f.split(os.sep)[-1],
+                    "file_name": f.split(os.sep)[-1],
                     "path": f,
                     "root_folder": root,
-                    "depth": max_depth
+                    "depth_of_folder": max_depth
                 })
 
     return data
