@@ -1,10 +1,11 @@
+import asyncio
 from dotenv import load_dotenv
 import os
 load_dotenv()
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI,Body
 from  langchain_community.embeddings import HuggingFaceEmbeddings
-
+from fastapi.responses import StreamingResponse
 
 from scripts.github_repo_loader import clone_github_repo
 from scripts.loader import load_code
@@ -13,50 +14,72 @@ from scripts.loader import load_code
 from scripts.spliiter import splitter
 
 from scripts.vd import create_vector_store
-from scripts.retriverAndaug import get_response,chain_llm
+from chatbot.chatbot import add_vector_store
 
 app = FastAPI()
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
-# hf_model = HuggingFaceEmbeddings(
-#     model_name="sentence-transformers/all-MiniLM-L6-v2"
+hf_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 
-# )
+)
 @app.get("/")
 async def read_root():
     return {"message": "Codebase Reader API iiis running."}
 
-@app.get("/embeddings")
-async def fn(github_repo_url: str):
-    repo_path = clone_github_repo(github_repo_url)
+@app.post("/embeddings")
+async def fn_embedding(url: dict = Body(...)):
+    repo_path = clone_github_repo(url["repo_url"])
     documents = load_code(repo_path)
     chunks = splitter(documents)
     global vector_store
     vector_store = create_vector_store(chunks, hf_model)
+    print("Vector store created.")
+    add_vector_store(vector_store)
     # print("Vector store created.")
     # print(vector_store.index_to_docstore_id)
     return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "store": vector_store.index_to_docstore_id}
 
 ## todo add the methods for calling 
 
-@app.get("/respond")
-async def call(query: str, k: int):
+
+from chatbot.chatbot import create_chatbot, chat_with_codebase
+
+@app.post("/chat")
+async def chat():
+    data=create_chatbot()
+    return {"message": "Chatbot created successfully.", "thread_id": data}
+
+@app.post("/respond")
+async def call(data: dict = Body(...)):
     # repo_path = clone_github_repo("https://github.com/pbhatt009/Ml-Model-Streamlit.git")
     # documents = load_code(repo_path)
     # chunks = splitter(documents)
     # vector_store = create_vector_store(chunks, hf_model)
-    # # print("Vector store created.")
-    # # print(vector_store.index_to_docstore_id)
-    # # return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "id": vector_store.index_to_docstore_id}
-    # response=get_response(vector_store, query, k)
-    # return {"response": response}
-    pass
+    # print("Vector store created.")
+    # print(vector_store.index_to_docstore_id)
+    # return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "id": vector_store.index_to_docstore_id}
+    async def event_generator():
+        i=0
+        for chunk in chat_with_codebase(data["query"], data["thread_id"]):
+            # SSE FORMAT (CRITICAL)
+            i+=1
+            # print("chunk name",i, chunk)
+            yield f"data: {chunk}\n\n"
+            await asyncio.sleep(0)
+           
+    
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        
+    )
+    
 
 
 
 
 # ### download embedding model on startup instead of at request time
-
-
 
 
 
@@ -88,8 +111,9 @@ async def call(query: str, k: int):
 from repo_qulaity.scanner import scan_repo
 from repo_qulaity.metrics import readme_metrics, analyze_files,analyze_folder
 from repo_qulaity.score_cal import calculate_score
+
 if(__name__ == "__main__"):
-    # uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000,reload=True)
     # data=scan_repo("scripts/clone_repo/Blog_Web_App")
     # print(data)
     # readme_data=readme_metrics("scripts/clone_repo/Blog_Web_App")
@@ -100,7 +124,14 @@ if(__name__ == "__main__"):
     
     # folder_data=analyze_folder(data["folders"])
     # print("folder analysis data", folder_data)
-    result=calculate_score("scripts/clone_repo/Blog_Web_App")
-    print(result)
+    # result=calculate_score("scripts/clone_repo/Blog_Web_App")
+    # print(result)
+    # fn_embedding({"repo_url":"https://github.com/pbhatt009/Video-Sharing-Platform-Frontend.git"})
+    # create_chatbot()
+    # chat_with_codebase("Explain the function of the codebase.", "1")
     
+    # fn_embedding({"repo_url":"https://github.com/pbhatt009/Video-Sharing-Platform-Frontend.git"})
+    # create_chatbot()
+    # res=call({"query":"Explain the function of the codebase.","thread_id":"1"})
+    # print(res)
     

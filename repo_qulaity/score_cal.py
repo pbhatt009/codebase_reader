@@ -6,7 +6,7 @@ def calculate_score(path):
     score = 0
     good = []
     bad = []
-
+    readme_string=""
     # NEW
     file_scores = []
     folder_scores = []
@@ -23,7 +23,8 @@ def calculate_score(path):
 
     # ---------------- README METRICS ----------------
     readme = readme_metrics(path)
-
+    if readme['content']:
+        readme_string=readme['content']
     if readme["exists"]:
         score += 10
         good.append("README file exists")
@@ -46,7 +47,7 @@ def calculate_score(path):
 
     # ---------------- FILE METRICS ----------------
     file_metrics = analyze_files(files_folder_data["files"])
-    files = file_metrics["data"]
+    files =  file_metrics["data"]
 
     if files:
         score += 10
@@ -182,6 +183,7 @@ def calculate_score(path):
         )
 
     return {
+        "readme":readme_string,
         "final_score": min(score, 100),
         "good": good,
         "bad": bad,
