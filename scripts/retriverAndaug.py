@@ -21,14 +21,14 @@ HUGGINGFACEHUB_ACCESS_TOKEN=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
 
 
 # )
-chat = HuggingFaceEndpoint(
-    api_key=HUGGINGFACEHUB_ACCESS_TOKEN,
-    repo_id="meta-llama/Llama-3.1-8B-Instruct",
-    task="text-generation",
-    max_new_tokens=5000,
-    do_sample=False,
+# chat = HuggingFaceEndpoint(
+#     api_key=HUGGINGFACEHUB_ACCESS_TOKEN,
+#     repo_id="meta-llama/Llama-3.1-8B-Instruct",
+#     task="text-generation",
+#     max_new_tokens=5000,
+#     do_sample=False,
     
-)
+# )
 # chat = HuggingFacePipeline.from_model_id(
 #     model_id="gpt2",
 #     task='text-generation',

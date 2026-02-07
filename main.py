@@ -10,13 +10,27 @@ from fastapi.responses import StreamingResponse
 from scripts.github_repo_loader import clone_github_repo
 from scripts.loader import load_code
 
-
+import json
 from scripts.spliiter import splitter
 
 from scripts.vd import create_vector_store
 from chatbot.chatbot import add_vector_store
+from fastapi.middleware.cors import CORSMiddleware
+
+
 
 app = FastAPI()
+# origins = [
+#     "http://localhost:5173/"
+# ]
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,        # allowed origins
+#     allow_credentials=True,
+#     allow_methods=["*"],          # GET, POST, PUT, DELETE etc.
+#     allow_headers=["*"],          # all headers
+# )
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
 hf_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -28,16 +42,16 @@ async def read_root():
 
 @app.post("/embeddings")
 async def fn_embedding(url: dict = Body(...)):
-    repo_path = clone_github_repo(url["repo_url"])
-    documents = load_code(repo_path)
-    chunks = splitter(documents)
-    global vector_store
+    data = clone_github_repo(url["repo_url"])
+    docs= load_code(data['path'])
+    chunks = splitter(docs)
+    print(chunks)
     vector_store = create_vector_store(chunks, hf_model)
     print("Vector store created.")
-    add_vector_store(vector_store)
+    add_vector_store(vector_store,data['path'])
     # print("Vector store created.")
     # print(vector_store.index_to_docstore_id)
-    return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "store": vector_store.index_to_docstore_id}
+    return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "store": vector_store.index_to_docstore_id,"tree":data['tree']}
 
 ## todo add the methods for calling 
 
@@ -75,6 +89,9 @@ async def call(data: dict = Body(...)):
         
     )
     
+
+
+
 
 
 
@@ -124,8 +141,12 @@ if(__name__ == "__main__"):
     
     # folder_data=analyze_folder(data["folders"])
     # print("folder analysis data", folder_data)
-    # result=calculate_score("scripts/clone_repo/Blog_Web_App")
-    # print(result)
+    
+    # def dict_to_string() -> str:
+    #     result=calculate_score("scripts/clone_repo/Video-Sharing-Platform-Frontend")
+    #     return json.dumps(result, indent=2, ensure_ascii=False)
+    # print(dict_to_string())
+  
     # fn_embedding({"repo_url":"https://github.com/pbhatt009/Video-Sharing-Platform-Frontend.git"})
     # create_chatbot()
     # chat_with_codebase("Explain the function of the codebase.", "1")

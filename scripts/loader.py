@@ -2,9 +2,10 @@ from langchain_community.document_loaders import TextLoader
 from pathlib import Path
 import os
 
+
 def load_code(repo_dir=str) -> list:
     docs = []
-    
+    print(repo_dir)
     for file in Path(repo_dir).rglob("*.*"):
         if file.suffix in [".py", ".ipynb", ".md", ".txt", ".csv", ".json",".js",".html",".css",".java",".cpp",""]:
             try:
@@ -16,7 +17,9 @@ def load_code(repo_dir=str) -> list:
                 docs.extend(loader.load())
             except Exception as e:
                 print(f"Skipping {file}: {e}")
-
+                
+    
+    print("returned docs",docs)
     return docs
 
 

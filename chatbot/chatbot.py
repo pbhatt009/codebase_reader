@@ -11,10 +11,10 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFacePipeline,HuggingFaceEndpoint
 from repo_qulaity.score_cal import calculate_score
-import os
+import os,json
 from dotenv import load_dotenv
 load_dotenv()
- 
+
 # ================== LLM ==================
 chat = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
@@ -69,7 +69,7 @@ def return_context(docs):
 
 def format_history(messages: List[BaseMessage]) -> str:
     formatted = []
-    for msg in messages[:-1]:  # exclude current question
+    for msg in messages[-7:-1]:  # exclude current question
         role = "User" if isinstance(msg, HumanMessage) else "Assistant"
         formatted.append(f"{role}: {msg.content}")
     return "\n".join(formatted)
@@ -78,13 +78,19 @@ def format_history(messages: List[BaseMessage]) -> str:
 # vector store injected later
 
 
-def add_vector_store(store):
+def add_vector_store(store,repo_path):
     global vector_store
     vector_store = store
+    global path
+    path=repo_path
     
     
 def repo_info():
-    pass
+   
+    
+    result=calculate_score(path)
+    return json.dumps(result, indent=2, ensure_ascii=False)
+    
     # ================== Graph Node ==================
 def response_node(state: ChatState):
     """Streams tokens and saves final answer once"""
@@ -97,7 +103,9 @@ def response_node(state: ChatState):
     history_text = format_history(state["messages"])
     
     def is_info_related(question):
-        pass
+        keywords = ["repo", "repository", "project", "about", "overview"]
+        question_lower = question.lower()
+        return any(k in question_lower for k in keywords)
 
     
     
@@ -112,9 +120,9 @@ def response_node(state: ChatState):
     
     
 
-    chain = (
+    chain =(
         {
-            "context": RunnableLambda(context_text),
+            "context": RunnableLambda(lambda _:context_text),
             "history": RunnableLambda(lambda _: history_text),
             "question": RunnableLambda(lambda _: question),
         }
