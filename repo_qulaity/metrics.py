@@ -78,7 +78,8 @@ def analyze_files(files):
 
 def analyze_folder(folder):
     
-    
+    if len(folder)==0:
+        return {}
     root=folder[0].replace(clone_path,"").split(os.sep)[0] # root folder name
     data=[]
     for f in folder:

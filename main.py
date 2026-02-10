@@ -7,7 +7,7 @@ from fastapi import FastAPI,Body
 from  langchain_community.embeddings import HuggingFaceEmbeddings
 from fastapi.responses import StreamingResponse
 
-from scripts.github_repo_loader import clone_github_repo
+from scripts.github_repo_loader import clone_github_repo,gettree
 from scripts.loader import load_code
 
 import json
@@ -16,6 +16,7 @@ from scripts.spliiter import splitter
 from scripts.vd import create_vector_store
 from chatbot.chatbot import add_vector_store
 from fastapi.middleware.cors import CORSMiddleware
+
 
 
 
@@ -43,18 +44,27 @@ async def read_root():
 @app.post("/embeddings")
 async def fn_embedding(url: dict = Body(...)):
     data = clone_github_repo(url["repo_url"])
-    docs= load_code(data['path'])
-    chunks = splitter(docs)
-    print(chunks)
-    vector_store = create_vector_store(chunks, hf_model)
-    print("Vector store created.")
-    add_vector_store(vector_store,data['path'])
+    # docs= load_code(data['path'])
+    # chunks = splitter(docs)
+    # print(chunks)
+    # vector_store = create_vector_store(chunks, hf_model)
+    # print("Vector store created.")
+    # add_vector_store(vector_store,data['path'])
     # print("Vector store created.")
     # print(vector_store.index_to_docstore_id)
-    return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "store": vector_store.index_to_docstore_id,"tree":data['tree']}
+    # return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "store": vector_store.index_to_docstore_id,"tree":data['tree']}
+    return {"message": "codebase loaded sucessfully.", "tree":data['tree'],"repo_info":data['repo_info']}
 
 ## todo add the methods for calling 
 
+
+@app.get("/gettree")
+async def get_tree(repo_owner: str, repo_name: str):
+    res = gettree(repo_owner, repo_name)
+    return {
+        "message": "tree fetched successfully",
+        "tree": res
+    }
 
 from chatbot.chatbot import create_chatbot, chat_with_codebase
 
