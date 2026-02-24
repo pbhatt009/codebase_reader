@@ -5,9 +5,9 @@ import os
 
 def load_code(repo_dir=str) -> list:
     docs = []
-    print(repo_dir)
+    # print(repo_dir)
     for file in Path(repo_dir).rglob("*.*"):
-        if file.suffix in [".py", ".ipynb", ".md", ".txt", ".csv", ".json",".js",".html",".css",".java",".cpp",""]:
+        if file.suffix in [".py", ".ipynb", ".md", ".txt", ".csv", ".json",".js",".html",".css",".java",".cpp",".jsx"]:
             try:
                 loader = TextLoader(
                     str(file),
@@ -19,7 +19,7 @@ def load_code(repo_dir=str) -> list:
                 print(f"Skipping {file}: {e}")
                 
     
-    print("returned docs",docs)
+    # print("returned docs",docs)
     return docs
 
 

@@ -13,6 +13,11 @@ from langchain_huggingface import HuggingFacePipeline,HuggingFaceEndpoint
 from repo_qulaity.score_cal import calculate_score
 import os,json
 from dotenv import load_dotenv
+
+from main import db,hf_model
+
+from chatbot.session import add_history,get_history
+
 load_dotenv()
 
 # ================== LLM ==================
@@ -59,61 +64,104 @@ Answer:
 
 # ================== State ==================
 class ChatState(TypedDict):
-    messages: Annotated[List[BaseMessage], add_messages]
+    message:BaseMessage
+    answer:BaseMessage
+    user_id:str
+    thread_id:str
+    repo_id:str
     # stream:str
 
 # ================== RAG helpers ==================
-def return_context(docs):
-    print(len(docs), "docs found for retrieval")
-    return "\n\n".join(doc.page_content for doc in docs)
-
-def format_history(messages: List[BaseMessage]) -> str:
-    formatted = []
-    for msg in messages[-7:-1]:  # exclude current question
-        role = "User" if isinstance(msg, HumanMessage) else "Assistant"
-        formatted.append(f"{role}: {msg.content}")
-    return "\n".join(formatted)
 
 
-# vector store injected later
-
-
-def add_vector_store(store,repo_path):
-    global vector_store
-    vector_store = store
-    global path
-    path=repo_path
+def format_history() -> str:
+    history = get_history()
+    return history
     
+  
+### repo info function
+def repo_info(repo_id):
     
-def repo_info():
+    res=(
+        db.table("score")
+        .select("*")
+        .eq("id", repo_id)
+    )
+    
+    if len(res.data)==0:
+        return "No information available about the repository."
+    score_data=res.data[0]
+    return str(score_data)
    
     
-    result=calculate_score(path)
-    return json.dumps(result, indent=2, ensure_ascii=False)
+
+# fetch context function
+
+def fetch_context(question,repo_id):
+    vector=hf_model.embed_query(question)
+    response = db.rpc(
+    "semantic",
+    {
+        "query_vec": vector,  
+        "id": repo_id
+    }
+    ).execute()
+    
+    context="\n\n".join(doc["chunk_text"] for doc in response.data)
+    return context
+
+
+
+# add message to database
+def add_message_db(content,role,thread_id, user_id):
+    
+    message_entry=(
+        db.table("messages")
+        .insert({
+            
+            "content": content,
+            "role": role,
+            "thread_id": thread_id,
+            "user_id": user_id
+        })
+        .execute()
+    )
+    print("message_entry sucessfull")
+
+
+    
+def is_info_related(question):
+    keywords = ["repo", "repository", "project", "about", "overview"]
+    question_lower = question.lower()
+    return any(k in question_lower for k in keywords)   
+
     
     # ================== Graph Node ==================
-def response_node(state: ChatState):
-    """Streams tokens and saves final answer once"""
-    retriever = vector_store.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 4}
-    )
 
-    question = state["messages"][-1].content
-    history_text = format_history(state["messages"])
+def response_node(state: ChatState):
+   
     
-    def is_info_related(question):
-        keywords = ["repo", "repository", "project", "about", "overview"]
-        question_lower = question.lower()
-        return any(k in question_lower for k in keywords)
+
+    question = state["message"].content
+    thread_id=state["thread_id"]
+    user_id=state["user_id"]
+    repo_id=state["repo_id"]
+    history_text = format_history()
+    ### add question to history
+    add_history("User", question)
+    ## add question to database
+    
+    add_message_db(state["message"].content, "user", thread_id, user_id)
+    
+    
+
 
     
     
     if is_info_related(question):
-        context_text = repo_info()
+        context_text = repo_info(repo_id)
     else:
-        docs = retriever.invoke(question)
-        context_text = return_context(docs)
+        context_text=fetch_context(question,repo_id)
         
     
     # conditioning chaining for context
@@ -132,10 +180,10 @@ def response_node(state: ChatState):
 
     full_answer = ""
 
-    # 🔥 STREAM TOKENS
+    #  STREAM TOKENS
     print(question)
     i=0
-    for chunk in chain.stream(state['messages']):
+    for chunk in chain.stream(state['message']):
         # print("chunk", chunk)
        
         if hasattr(chunk, "content"):
@@ -148,7 +196,10 @@ def response_node(state: ChatState):
     # print("Full answer:", full_answer)
     # print("yielding full answer",full_answer)
     
-    yield {"messages":[AIMessage(content=full_answer)]}
+    add_history("assistant", full_answer)
+    add_message_db(full_answer, "assistant", thread_id, user_id)
+    
+    yield {"answer":[AIMessage(content=full_answer)]}
     
 
 # ================== Build Graph ==================
@@ -164,11 +215,11 @@ def create_chatbot():
     workflow = graph.compile(checkpointer=checkpointer)
 
 # ================== Public API ==================
-def chat_with_codebase(question: str, thread_id: str):
-    config = {"configurable": {"thread_id": thread_id}}
+def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
+    config = {"configurable": {"thread_id": thread_id,"user_id": user_id}}
 
     for msg, meta in workflow.stream(
-    {"messages": [HumanMessage(content=question)]},
+    {"message": HumanMessage(content=question), "user_id": user_id, "thread_id": thread_id, "repo_id": repo_id},
     config=config,
     stream_mode="messages"
     ):
@@ -181,7 +232,7 @@ def chat_with_codebase(question: str, thread_id: str):
     # print("updating state")
            
     state = workflow.get_state(
-            config={"configurable": {"thread_id": thread_id}}
+            config={"configurable": {"thread_id": thread_id,"user_id": user_id}}
 )
     # print(state.values["messages"] )      
                 

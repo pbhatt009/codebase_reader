@@ -64,7 +64,7 @@ def repodetail(repo_owner,repo_name):
     response.raise_for_status()
 
     data = response.json()
-    return {"id":data["id"],"repo_name":data["name"],"private":data["private"],"owner_name":data["owner"]["login"],"owner_avatar url":data["owner"]["avatar_url"],"description":data["description"]}
+    return {"id":data["id"],"repo_name":data["name"],"private":data["private"],"owner_name":data["owner"]["login"],"owner_avatar_url":data["owner"]["avatar_url"],"description":data["description"]}
 
 
     
@@ -100,4 +100,4 @@ def clone_github_repo(repo_url: str, clone_dir:str="scripts/clone_repo") -> str:
     repo_info["url"]=repo_url
     
     
-    return {"path":repo_path,"tree":tree,"repo_info":repo_info}
+    return {"path":repo_path,"tree":tree,"repo_info":repo_info,"score":score}

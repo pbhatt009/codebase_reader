@@ -190,5 +190,5 @@ def calculate_score(path):
         "file_scores": file_scores,
         "folder_scores": folder_scores,
         "issues_found": issues_found,
-        "issue_counters": issue_counters
+        
     }
