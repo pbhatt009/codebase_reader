@@ -1,5 +1,5 @@
 history=[]
-
+from langgraph.checkpoint.memory import InMemorySaver
 
 def fetch_history(thread_id,user_id,db):
     
@@ -8,7 +8,7 @@ def fetch_history(thread_id,user_id,db):
         .select("role","content")
         .eq("thread_id",thread_id)
         .eq("user_id",user_id)
-        .order("created_at", descending=True)
+        .order("created_at", desc=True)
         .limit(10)
         .execute()
     )
@@ -24,7 +24,4 @@ def get_history():
 def add_history(role,content):
     history.append(f'{role}: {content}')
 
-    
-    
-    
     

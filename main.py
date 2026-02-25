@@ -15,7 +15,7 @@ from chatbot.session import add_history
 from fastapi.middleware.cors import CORSMiddleware
 
 from Database.database import connect_db
-
+from utils import add_utils
 
 app = FastAPI()
 # origins = [
@@ -36,6 +36,9 @@ hf_model = HuggingFaceEmbeddings(
 )
   
 db=connect_db()
+
+add_utils(db,hf_model)
+
 @app.get("/")
 async def read_root():
     return {"message": "Codebase Reader API iiis running."}
@@ -173,12 +176,27 @@ async def get_tree(repo_owner: str, repo_name: str):
         "tree": res
     }
 
-# from chatbot.chatbot import create_chatbot, chat_with_codebase
+from chatbot.chatbot import  chat_with_codebase
 
-@app.post("/chat")
-async def chat():
 
-    return {"message": "Chatbot created successfully.", "thread_id": data}
+
+@app.post("/new_chat")
+async def new_chat(data: dict = Body(...)):
+ 
+    user_id = data["user_id"]
+    repo_id = data["repo_id"]
+    title=data["title"]
+    res=(db.table("threads")
+    .insert({
+        
+        "repo_id": repo_id,
+        "created_by": user_id,
+        "title": title
+    })
+    .execute()
+    )
+    print("thread created",res)
+    return {"message": "Thread created successfully.", "response": res}
 
 @app.post("/respond")
 async def call(data: dict = Body(...)):
@@ -191,7 +209,7 @@ async def call(data: dict = Body(...)):
     # return {"message": "Vector store created successfully.", "num_chunks": len(chunks), "id": vector_store.index_to_docstore_id}
     async def event_generator():
         i=0
-        for chunk in chat_with_codebase(data["query"], data["thread_id"]):
+        for chunk in chat_with_codebase(data["query"], data["thread_id"],data['user_id'],data['repo_id']):
             # SSE FORMAT (CRITICAL)
             i+=1
             # print("chunk name",i, chunk)

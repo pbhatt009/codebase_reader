@@ -14,13 +14,15 @@ from repo_qulaity.score_cal import calculate_score
 import os,json
 from dotenv import load_dotenv
 
-from main import db,hf_model
+from utils import get_utils
 
-from chatbot.session import add_history,get_history
+from chatbot.session import add_history,get_history,fetch_history
 
 load_dotenv()
 
 # ================== LLM ==================
+db=None
+hf_model=None
 chat = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
@@ -86,6 +88,7 @@ def repo_info(repo_id):
         db.table("score")
         .select("*")
         .eq("id", repo_id)
+        .execute()
     )
     
     if len(res.data)==0:
@@ -103,7 +106,7 @@ def fetch_context(question,repo_id):
     "semantic",
     {
         "query_vec": vector,  
-        "id": repo_id
+        "id": int(repo_id)
     }
     ).execute()
     
@@ -116,7 +119,7 @@ def fetch_context(question,repo_id):
 def add_message_db(content,role,thread_id, user_id):
     
     message_entry=(
-        db.table("messages")
+        db.table("messages") 
         .insert({
             
             "content": content,
@@ -208,16 +211,25 @@ graph.add_node("response", response_node)
 graph.add_edge(START, "response")
 graph.add_edge("response", END)
 
-def create_chatbot():
-    global workflow
+def check_thread(thread_id,user_id,repo_id):
+    res=(
+        db.table("threads")
+    )
 
-    checkpointer = InMemorySaver()
-    workflow = graph.compile(checkpointer=checkpointer)
-
+workflow =None
+checkpointer = InMemorySaver()
 # ================== Public API ==================
 def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
     config = {"configurable": {"thread_id": thread_id,"user_id": user_id}}
+    global hf_model, db, workflow
+    if hf_model is None:
+        (hf_model,db)=get_utils()
 
+    if workflow is None:
+        workflow = graph.compile(checkpointer=checkpointer)
+        fetch_history(thread_id,user_id,db)
+    
+    
     for msg, meta in workflow.stream(
     {"message": HumanMessage(content=question), "user_id": user_id, "thread_id": thread_id, "repo_id": repo_id},
     config=config,
