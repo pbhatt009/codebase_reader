@@ -1,7 +1,11 @@
 import asyncio
+from importlib.resources import path
+import shutil
 from dotenv import load_dotenv
 import os
+import stat
 load_dotenv()
+from sqlalchemy import func
 import uvicorn
 from fastapi import FastAPI,Body
 from  langchain_community.embeddings import HuggingFaceEmbeddings
@@ -17,18 +21,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from Database.database import connect_db
 from utils import add_utils
 
-app = FastAPI()
-# origins = [
-#     "http://localhost:5173/"
-# ]
+import asyncio
+import uuid
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=origins,        # allowed origins
-#     allow_credentials=True,
-#     allow_methods=["*"],          # GET, POST, PUT, DELETE etc.
-#     allow_headers=["*"],          # all headers
-# )
+
+app = FastAPI()
+origins = [
+    os.getenv("FRONTEND_URL")  # frontend URL from .env
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,        # allowed origins
+    allow_credentials=True,
+    allow_methods=["*"],          # GET, POST, PUT, DELETE etc.
+    allow_headers=["*"],          # all headers
+)
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
 hf_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -44,33 +52,31 @@ async def read_root():
     return {"message": "Codebase Reader API iiis running."}
 
 @app.post("/register")
-async def register(data):
+async def register(data: dict = Body(...)):
     
     existing= (
     db.table("profiles")
     .select("*")
-    .eq("username", data["user"])
+    .eq("id", data["user"])
     .execute()
 )
-    print("existing",existing)
+    # print("existing",existing)
     if len(existing.data)!=0 :
         print("user alredy exist")
-        return
+        return {"message": "User already exists.", "user_info": existing.data[0]}
         
+
     
-    response1 =  db.auth.sign_in_anonymously(
-    {"options": {"data":data} }
-)
-    print("response1",response1)
     response2 = (
     db.table("profiles")
-    .insert({"id":response1.user.id, "username":response1.user.user_metadata['user'],"avatar_url":""})
-    .execute()
+        .insert({"id":data['user'], "username":f"user_{data['user']}", "avatar_url":""})
+        .execute()
 )    
     
    
     print("response2",response2)
     # return {"user created succefully",response}
+    return {"message": "User created successfully.", "user_info": response2.data[0]}
     
 
 
@@ -91,7 +97,7 @@ async def fn_embedding(get: dict = Body(...)):
     print("existing",existing)
     if len(existing.data)!=0 :
         print("repo alredy exist")
-        return {"message": "Repository already exists."}
+        return {"message": "Repository already exists.","exist":True}
     
     data = clone_github_repo(url)
   
@@ -149,21 +155,33 @@ async def fn_embedding(get: dict = Body(...)):
         .eq("repo_id",data['repo_info']['id'])
         .execute()
     )
+    chunks_count=0
     if len(exsiting_emebdding.data)==0 :
         vector_data=create_vector_store(data['repo_info']['id'],data['path'], hf_model)
+        chunks_count=len(vector_data)
         print("vector_data",vector_data)
         vector_data_res=(
             db.table("repo_embeddings")
             .insert(vector_data)
             .execute()
         )
-        
-        # print("vector_data_res",vector_data_res)
     else:
+        
+        chunks_count=len(exsiting_emebdding.data)
+        # print("vector_data_res",vector_data_res)
+
         print("vector store alredy exist")
         
+    # delete the cloned repo to save space
+    print(data['path'])
+    def remove_readonly(func, path, _):
+        os.chmod(path,stat.S_IWRITE)
+        func(path)
+    shutil.rmtree(data['path'],onexc=remove_readonly)
         
-    return {"message": "codebase loaded sucessfully.", "tree":data['tree'],"repo_info":data['repo_info'],"vector_data_count":len(vector_data)}
+        
+    return {"message": "codebase loaded sucessfully.", "tree":data['tree'],"repo_info":data['repo_info'],"vector_data_count":chunks_count,"exist":False,"score":data["score"]
+            }
 
 ## todo add the methods for calling 
 
@@ -179,8 +197,21 @@ async def get_tree(repo_owner: str, repo_name: str):
 from chatbot.chatbot import  chat_with_codebase
 
 
+@app.get("/getscore/{repo_id}")
+async def get_score(repo_id: int):
+    res=(
+        db.table("score")
+        .select("*")
+        .eq("id", repo_id)
+        .execute()
+    )
+    return {
+        "message": "Score fetched successfully",
+        "score": res.data[0] if len(res.data) > 0 else None
+    }
 
-@app.post("/new_chat")
+
+@app.post("/newchat")
 async def new_chat(data: dict = Body(...)):
  
     user_id = data["user_id"]
@@ -224,53 +255,51 @@ async def call(data: dict = Body(...)):
         
     )
     
-@app.post("/start_session")
-async def start_session(data: dict = Body(...)):
-    thread=data["thread_id"]
-    user_id=data["user_id"]
-    history=add_history(thread,user_id,db)
+@app.get("/repositories/{user_id}")
+async def get_repositories(user_id: str):
+    user_id=uuid.UUID(user_id)
+    res=(
+        db.table("repositories")
+        .select("*")
+        .eq("added_by", user_id)
+        .execute()
+    )
+    return {
+        "message": "Repositories fetched successfully",
+        "repositories": res.data
+    }
+
+@app.get("/threads/{repo_id}/{user_id}")
+async def get_threads(repo_id: int, user_id:str):
+    res=(
+        db.table("threads")
+        .select("id","title","created_at")
+        .eq("repo_id", repo_id)
+        .eq("created_by", user_id)
+        .execute()
+    )
+    return {
+        "message": "Threads fetched successfully",
+        "threads": res.data
+    }
     
-
-
-
-
-
-
-# ### download embedding model on startup instead of at request time
-
-
-
-
-
-# for doc in documents:
-#     print("meta", doc.metadata['source'].split(".")[-1])
     
-
-
-# print(f"Total chunks created: {len(chunks)}")
-# for chunk in chunks[:3]:
-#     print(chunk.page_content)
-#     print("-----")
+@app.get("/messages/{thread_id}")
+async def get_messages(thread_id: int):
     
+    res=(
+        db.table("messages")
+        .select("*")
+        .eq("thread_id", thread_id)
+      
+        .order("created_at", desc=False)
+        .execute()
+    )
+    return {
+        "message": "Messages fetched successfully",
+        "history": res.data
+    }
 
-
-# vector_store = create_vector_store(chunks, hf_model)
-# print("Vector store created.")
-# print(vector_store.index_to_docstore_id)
-
-
-# print(chain_llm)
-
-# result=get_response(vector_store, "What is the purpose of this repository?",k=4)
-# print(result)
-
-
-from repo_qulaity.scanner import scan_repo
-from repo_qulaity.metrics import readme_metrics, analyze_files,analyze_folder
-from repo_qulaity.score_cal import calculate_score
-from sqlalchemy import text
-
-import asyncio
     
 if(__name__ == "__main__"):
     uvicorn.run("main:app", host="127.0.0.1", port=8000,reload=True)

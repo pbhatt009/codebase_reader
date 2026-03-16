@@ -16,7 +16,9 @@ from dotenv import load_dotenv
 
 from utils import get_utils
 
-from chatbot.session import add_history,get_history,fetch_history
+from chatbot.session import add_history,get_history,fetch_history,history_store,clear_history
+
+
 
 load_dotenv()
 
@@ -31,14 +33,7 @@ chat = ChatGoogleGenerativeAI(
     streaming=True
 )
 
-# chat = HuggingFaceEndpoint(
-#     api_key=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN"),
-#     repo_id="meta-llama/Llama-3.1-8B-Instruct",
-#     task="text-generation",
-#     max_new_tokens=5000,
-#     do_sample=False,
-    
-# )
+
 # ================== Prompt ==================
 prompt = PromptTemplate(
     template="""
@@ -76,10 +71,7 @@ class ChatState(TypedDict):
 # ================== RAG helpers ==================
 
 
-def format_history() -> str:
-    history = get_history()
-    return history
-    
+
   
 ### repo info function
 def repo_info(repo_id):
@@ -102,6 +94,7 @@ def repo_info(repo_id):
 
 def fetch_context(question,repo_id):
     vector=hf_model.embed_query(question)
+    # print("vector",vector)
     response = db.rpc(
     "semantic",
     {
@@ -109,6 +102,7 @@ def fetch_context(question,repo_id):
         "id": int(repo_id)
     }
     ).execute()
+    print("response",response)
     
     context="\n\n".join(doc["chunk_text"] for doc in response.data)
     return context
@@ -149,9 +143,11 @@ def response_node(state: ChatState):
     thread_id=state["thread_id"]
     user_id=state["user_id"]
     repo_id=state["repo_id"]
-    history_text = format_history()
+    
+    ## retrive history from memory
+    history_text = get_history(user_id, thread_id)
     ### add question to history
-    add_history("User", question)
+    add_history(user_id,thread_id,"User", question)
     ## add question to database
     
     add_message_db(state["message"].content, "user", thread_id, user_id)
@@ -199,7 +195,7 @@ def response_node(state: ChatState):
     # print("Full answer:", full_answer)
     # print("yielding full answer",full_answer)
     
-    add_history("assistant", full_answer)
+    add_history(user_id, thread_id, "assistant", full_answer)
     add_message_db(full_answer, "assistant", thread_id, user_id)
     
     yield {"answer":[AIMessage(content=full_answer)]}
@@ -216,18 +212,22 @@ def check_thread(thread_id,user_id,repo_id):
         db.table("threads")
     )
 
-workflow =None
-checkpointer = InMemorySaver()
+workflow =graph.compile()
+
 # ================== Public API ==================
 def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
     config = {"configurable": {"thread_id": thread_id,"user_id": user_id}}
-    global hf_model, db, workflow
+    global hf_model, db
     if hf_model is None:
         (hf_model,db)=get_utils()
+        
+    
+        
+    
+        
+  
+        fetch_history(thread_id, user_id, db)
 
-    if workflow is None:
-        workflow = graph.compile(checkpointer=checkpointer)
-        fetch_history(thread_id,user_id,db)
     
     
     for msg, meta in workflow.stream(
@@ -243,8 +243,5 @@ def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
     
     # print("updating state")
            
-    state = workflow.get_state(
-            config={"configurable": {"thread_id": thread_id,"user_id": user_id}}
-)
-    # print(state.values["messages"] )      
+ 
                 
