@@ -1,7 +1,7 @@
 import asyncio
 from importlib.resources import path
 import shutil
-from dotenv import load_dotenv
+from dotenv import __main__, load_dotenv
 import os
 import stat
 load_dotenv()
@@ -14,12 +14,13 @@ from fastapi.responses import StreamingResponse
 
 from scripts.github_repo_loader import clone_github_repo,gettree
 import json
-from scripts.create_vectors import create_vector_store
 
-from chatbot.session import add_history
+
+
 from fastapi.middleware.cors import CORSMiddleware
-
-
+from scripts.create_vectors_api import create_vector_store
+from Database.database import connect_db
+from utils import add_utils
 
 import asyncio
 import uuid
@@ -40,38 +41,22 @@ app.add_middleware(
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
 
 
-model = None
-db=None
 
-def get_model():
-    global model,db
-    if model is None:
-        from langchain_huggingface import HuggingFaceEmbeddings
-        from Database.database import connect_db
-        from utils import add_utils
+db = connect_db()
+
+add_utils(db)
+
+
         
-        db = connect_db()
-
-
-        model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
         
        
-        add_utils(db, model)
-    else:
-        print("Model already initialized.")
-
-    
-
 @app.get("/")
 async def read_root():
-    get_model()
     return {"message": "Codebase Reader API iiis running."}
 
 @app.post("/register")
 async def register(data: dict = Body(...)):
-    get_model()
+    
     existing= (
     db.table("profiles")
     .select("*")
@@ -102,7 +87,7 @@ async def register(data: dict = Body(...)):
 async def fn_embedding(get: dict = Body(...)):
     url=get["repo_url"]
     user_id=get["user_id"]
-    get_model()
+   
     
     
     #  check for exisiting repo with current user and repo_url
@@ -176,7 +161,7 @@ async def fn_embedding(get: dict = Body(...)):
     )
     chunks_count=0
     if len(exsiting_emebdding.data)==0 :
-        vector_data=create_vector_store(data['repo_info']['id'],data['path'], hf_model)
+        vector_data=create_vector_store(data['repo_info']['id'],data['path'])
         chunks_count=len(vector_data)
         print("vector_data",vector_data)
         vector_data_res=(
@@ -320,8 +305,8 @@ async def get_messages(thread_id: int):
     }
 
     
+ 
 
  
-      
+
     
-  

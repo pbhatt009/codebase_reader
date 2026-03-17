@@ -5,6 +5,7 @@ def create_vector_store(repo_id,path, hf_model):
     
     docs= load_code(path)
     chunks = splitter(docs)
+   
     rows = []
 
     for i, doc in enumerate(chunks):

@@ -2,21 +2,20 @@
 from typing import TypedDict, Annotated, List
 from pydantic import BaseModel
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import InMemorySaver
+
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage,AIMessageChunk
 from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_huggingface import HuggingFacePipeline,HuggingFaceEndpoint
-from repo_qulaity.score_cal import calculate_score
+
+
 import os,json
 from dotenv import load_dotenv
-
+from scripts.create_vectors_api import embed_query
 from utils import get_utils
 
-from chatbot.session import add_history,get_history,fetch_history,history_store,clear_history
+from chatbot.session import add_history,get_history,fetch_history
 
 
 
@@ -93,7 +92,7 @@ def repo_info(repo_id):
 # fetch context function
 
 def fetch_context(question,repo_id):
-    vector=hf_model.embed_query(question)
+    vector=embed_query(question)
     # print("vector",vector)
     response = db.rpc(
     "semantic",
@@ -217,15 +216,9 @@ workflow =graph.compile()
 # ================== Public API ==================
 def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
     config = {"configurable": {"thread_id": thread_id,"user_id": user_id}}
-    global hf_model, db
-    if hf_model is None:
-        (hf_model,db)=get_utils()
-        
-    
-        
-    
-        
-  
+    global  db
+    if db is None:
+        db=get_utils()
         fetch_history(thread_id, user_id, db)
 
     
@@ -241,7 +234,7 @@ def chat_with_codebase(question: str, thread_id: str,user_id:str,repo_id:str):
         elif isinstance(msg, AIMessage):
             pass
     
-    # print("updating state")
+    
            
  
                 
