@@ -5,10 +5,11 @@ from dotenv import load_dotenv
 import os
 import stat
 load_dotenv()
+from git import db
 from sqlalchemy import func
 import uvicorn
 from fastapi import FastAPI,Body
-from  langchain_community.embeddings import HuggingFaceEmbeddings
+
 from fastapi.responses import StreamingResponse
 
 from scripts.github_repo_loader import clone_github_repo,gettree
@@ -38,17 +39,30 @@ app.add_middleware(
     allow_headers=["*"],          # all headers
 )
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
-hf_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
 
-)
-  
-db=connect_db()
+db = connect_db()
 
-add_utils(db,hf_model)
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        model = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        
+       
+        add_utils(db, model)
+    else:
+        print("Model already initialized.")
+
+    
 
 @app.get("/")
 async def read_root():
+    get_model()
     return {"message": "Codebase Reader API iiis running."}
 
 @app.post("/register")
@@ -84,6 +98,7 @@ async def register(data: dict = Body(...)):
 async def fn_embedding(get: dict = Body(...)):
     url=get["repo_url"]
     user_id=get["user_id"]
+    get_model()
     
     
     #  check for exisiting repo with current user and repo_url
