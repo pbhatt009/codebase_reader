@@ -30,7 +30,7 @@ def readme_metrics(repo_path: str):
 # analyze code files to get metrics like lines of code, comment density etc.
 
 def analyze_files(files):
-        root=files[0]["path"].replace(clone_path,"").split(os.sep)[0] # root folder name
+        
         data=[]
         # code files in root folder
         root_file=0
