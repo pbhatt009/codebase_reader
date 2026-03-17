@@ -19,8 +19,7 @@ from scripts.create_vectors import create_vector_store
 from chatbot.session import add_history
 from fastapi.middleware.cors import CORSMiddleware
 
-from Database.database import connect_db
-from utils import add_utils
+
 
 import asyncio
 import uuid
@@ -40,14 +39,19 @@ app.add_middleware(
 )
 api=os.getenv("HUGGINGFACEHUB_ACCESS_TOKEN")
 
-db = connect_db()
 
 model = None
+db=None
 
 def get_model():
-    global model
+    global model,db
     if model is None:
         from langchain_huggingface import HuggingFaceEmbeddings
+        from Database.database import connect_db
+        from utils import add_utils
+        
+        db = connect_db()
+
 
         model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -67,7 +71,7 @@ async def read_root():
 
 @app.post("/register")
 async def register(data: dict = Body(...)):
-    
+    get_model()
     existing= (
     db.table("profiles")
     .select("*")
