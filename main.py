@@ -26,6 +26,8 @@ import asyncio
 import uuid
 
 
+
+
 app = FastAPI()
 origins = [
     os.getenv("FRONTEND_URL")  # frontend URL from .env
@@ -184,7 +186,7 @@ async def fn_embedding(get: dict = Body(...)):
     shutil.rmtree(data['path'],onexc=remove_readonly)
         
         
-    return {"message": "codebase loaded sucessfully.", "tree":data['tree'],"repo_info":data['repo_info'],"vector_data_count":chunks_count,"exist":False,"score":data["score"]
+    return {"message": "codebase loaded sucessfully.", "tree":data['tree'],"repo_info":repo_res.data[0],"vector_data_count":chunks_count,"exist":False,"score":data["score"]
             }
 
 ## todo add the methods for calling 

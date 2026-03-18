@@ -1,7 +1,12 @@
+import dotenv
 from git import Repo
 import os
 import requests
 from repo_qulaity.score_cal import calculate_score
+import os
+from dotenv import load_dotenv
+load_dotenv()
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 def flattree(github_tree):
    
@@ -46,10 +51,13 @@ def flattree(github_tree):
 
 def gettree(repo_owner,repo_name):
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/git/trees/main?recursive=1"
-    headers = {}
-
+    headers = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github+json"
+}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
+    print(response.headers.get("X-RateLimit-Remaining"))
 
     data = response.json()["tree"]
     result=flattree(data)
@@ -59,7 +67,10 @@ def gettree(repo_owner,repo_name):
 
 def repodetail(repo_owner,repo_name):
     url=f"https://api.github.com/repos/{repo_owner}/{repo_name}" 
-    headers = {}
+    headers = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github+json"
+}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
 
