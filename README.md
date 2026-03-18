@@ -24,7 +24,7 @@ Codebase Reader API is a FastAPI server that:
 
 ## 4) Tech Stack
 - **Backend:** FastAPI, Uvicorn
-- **LLM / RAG:** LangChain, LangGraph, Google Gemini (via `langchain-google-genai`)
+- **LLM / RAG:** LangChain, LangGraph, Google Gemini (via `langchain-google-genai`),LangSmith
 - **Embeddings:** Hugging Face Inference API (`BAAI/bge-small-en`)
 - **Database:** Supabase (Postgres + vector/search RPC)
 - **Repo handling:** GitPython + GitHub REST API
